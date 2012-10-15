@@ -79,7 +79,6 @@ object SslNpnSupport {
 
         } else {
             log.debug("Switching on client side TLS-NPN")
-            NextProtoNego.debug = true
 
             object NPNClientProvider extends ClientProvider {
               def supports(): Boolean = true
