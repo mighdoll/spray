@@ -11,9 +11,11 @@ import cc.spray.can.server.HttpServer
 
 import parser.HttpParser
 import pipeline.SpdyStreamManager._
+import server.SpdyHttpServer.ServerPush
+import akka.event.LoggingAdapter
 
 object HttpOnSpdy {
-  def apply(client: Boolean = false): DoublePipelineStage = new DoublePipelineStage {
+  def apply(log: LoggingAdapter, client: Boolean = false): DoublePipelineStage = new DoublePipelineStage {
     def build(context: PipelineContext, commandPL: CPL, eventPL: EPL): BuildResult = new Pipelines {
 
       def eventPipeline: EPL = {
@@ -69,6 +71,12 @@ object HttpOnSpdy {
       def unpackHttpCommand(inner: HttpMessagePart => Unit): Command => Unit = {
         case HttpCommand(c: HttpMessagePart) => inner(c)
 
+        case ServerPush(request) =>
+          log.debug("Got request to push {}", request.uri)
+          require(request.entity.isEmpty)
+          commandPL(StreamOpenAssociated(Map("url" -> ("https://localhost:8081"+request.uri)), { ctx =>
+            ctx.pipelines.eventPipeline(HttpEvent(request))
+          }))
         case c => commandPL(c)
       }
     }
@@ -139,6 +147,4 @@ object HttpOnSpdy {
       (header.name.toLowerCase, header.value)
     }
   }
-
-
 }

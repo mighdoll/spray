@@ -33,6 +33,8 @@ class SpdyHttpServer(ioBridge: IOBridge, messageHandler: MessageHandler, setting
     override def receive = super.receive orElse {
       case Reply(msg: HttpMessagePart, ctx: SpdyContext) =>
         ctx.pipelines.commandPipeline(HttpCommand(msg))
+      case Reply(cmd: Command, ctx: SpdyContext) =>
+        ctx.pipelines.commandPipeline(cmd)
     }
   }
 
@@ -175,7 +177,7 @@ object SpdyHttpServer {
         (PipeliningLimit > 0) ? PipeliningLimiter(settings.PipeliningLimit) >>
         settings.StatsSupport ? StatsSupport(statsHolder.get) >>
         RemoteAddressHeader ? RemoteAddressHeaderSupport() >>
-        HttpOnSpdy()
+        HttpOnSpdy(log)
       } >>
       SpdyRendering() >>
       SpdyParsing()
@@ -228,4 +230,5 @@ object SpdyHttpServer {
   type Closed = IOServer.Closed;   val Closed = IOServer.Closed
   type SentOk = IOServer.SentOk;   val SentOk = IOServer.SentOk
 
+  case class ServerPush(request: HttpRequest) extends Command
 }

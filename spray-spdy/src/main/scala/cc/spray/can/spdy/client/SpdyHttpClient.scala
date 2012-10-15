@@ -47,7 +47,7 @@ object SpdyHttpClient {
       HttpOnSpdy.acceptRequests() >>
       SpdyStreamManager(HttpHelper.unwrapHttpEvent, log, None) {
         (ResponseChunkAggregationLimit > 0) ? ResponseChunkAggregation(ResponseChunkAggregationLimit.toInt) >>
-        HttpOnSpdy(client = true)
+        HttpOnSpdy(log, client = true)
       } >>
       SpdyRendering() >>
       SpdyParsing()
