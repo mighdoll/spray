@@ -37,7 +37,7 @@ in the HttpClient__ companion object). The client will attempt to connect to the
 an ``HttpClient.Connected`` event after the connection has been established, or a ``Status.Failure`` message
 (which is automatically turned into Future failures if the ``Connect`` was sent with an ``ask``).
 
-__ https://github.com/spray/spray/blob/master/spray-can/src/main/scala/cc/spray/can/client/HttpClient.scala
+__ https://github.com/spray/spray/blob/master/spray-can/src/main/scala/spray/can/client/HttpClient.scala
 
 After the connection has been established the application then sends an ``HttpRequest`` to the sender of the
 ``Connected`` message (which is the connection actor responsible for the connection). After having received and parsed
@@ -88,10 +88,13 @@ the connection, upon which the application receives a ``Closed(RequestTimeout)``
 Send Confirmations
 ~~~~~~~~~~~~~~~~~~
 
-If not disabled in the client config via the ``ack-sends`` setting the client dispatches ``SentOk`` messages to the
-application as soon as a request (part) has been successfully written to the connections socket. This confirmation
-message can be used, for example, to trigger the sending of the next request part in a request streaming scenario.
-With such a design the application will never produce more data than the network can handle.
+If required the client can reply with a "send confirmation" message to every request (part) received by the application.
+You request a send confirmation by modifying a request part with the ``withSentAck`` method (see the server-side
+:ref:`HttpServer Send Confirmations` section for example code).
+Confirmation messages are especially helpful for triggering the sending of the next request part in a request
+streaming scenario, since with such a design the application will never produce more data than the network can handle.
+
+Send confirmations are always dispatched to the actor, which sent the respective request (part).
 
 
 Closed Notifications
@@ -100,7 +103,7 @@ Closed Notifications
 When a connection is closed, for whatever reason, the ``HttpClient`` dispatches a ``Closed`` event message to the
 application. This message carries a ``reason`` member whose possible values are define here__.
 
-__ https://github.com/spray/spray/blob/master/spray-io/src/main/scala/cc/spray/io/ConnectionClosedReason.scala
+__ https://github.com/spray/spray/blob/master/spray-io/src/main/scala/spray/io/ConnectionClosedReason.scala
 
 
 Connection Configuration

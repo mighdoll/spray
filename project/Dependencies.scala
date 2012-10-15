@@ -5,7 +5,7 @@ object Dependencies {
 
   val resolutionRepos = Seq(
     "typesafe repo"  at "http://repo.typesafe.com/typesafe/releases/",
-    "spray repo"     at "http://repo.spray.cc/",
+    "spray repo"     at "http://repo.spray.io/",
     Resolver.url("sbt-plugin-releases",
       new URL("http://scalasbt.artifactoryonline.com/scalasbt/sbt-plugin-releases/"))(
         Resolver.ivyStylePatterns)
@@ -32,8 +32,8 @@ object Dependencies {
   val scalate       = "org.fusesource.scalate"                  %   "scalate-core"                % "1.5.3"
   val shapeless     = "com.chuusai"                             %%  "shapeless"                   % "1.2.2"
   val scalatest     = "org.scalatest"                           %%  "scalatest"                   % "1.8"
-  val specs2        = "org.specs2"                              %%  "specs2"                      % "1.11"
-  val sprayJson     = "cc.spray"                                %%  "spray-json"                  % "1.1.1"
+  val specs2        = "org.specs2"                              %%  "specs2"                      % "1.12.2"
+  val sprayJson     = "io.spray"                                %%  "spray-json"                  % "1.2"
   val twirlApi      = "cc.spray"                                %%  "twirl-api"                   % "0.5.4"
 
 }

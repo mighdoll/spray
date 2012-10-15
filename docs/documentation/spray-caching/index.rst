@@ -21,9 +21,9 @@ Dependencies
 
 Apart from the Scala library (see :ref:`current-versions` chapter) *spray-caching* depends on
 
-- akka-actor (with 'provided' scope, i.e. you need to pull it in yourself)
-- `concurrentlinkedhashmap 1.3.1`__
 - :ref:`spray-util`
+- `concurrentlinkedhashmap 1.3.1`__
+- akka-actor (with 'provided' scope, i.e. you need to pull it in yourself)
 
 __ http://code.google.com/p/concurrentlinkedhashmap/
 
@@ -33,7 +33,7 @@ Installation
 
 The :ref:`maven-repo` chapter contains all the info about how to pull *spray-caching* into your classpath.
 
-Afterwards just ``import cc.spray.caching._`` to bring all relevant identifiers into scope.
+Afterwards just ``import spray.caching._`` to bring all relevant identifiers into scope.
 
 
 The `Cache` Interface
@@ -66,7 +66,7 @@ as is the case within an ``Actor`` implementation. Otherwise you need to bring a
 Example
 -------
 
-.. includecode:: ../code/docs/CachingExamplesSpec.scala
+.. includecode:: code/docs/CachingExamplesSpec.scala
    :snippet: example-1
 
 
@@ -109,6 +109,6 @@ has to be strictly greater than the time-to-idle.
    they might prevent gargabe collection of their values for longer than expected.
 
 
-.. _Cache: https://github.com/spray/spray/blob/master/spray-caching/src/main/scala/cc/spray/caching/Cache.scala
-.. _SimpleLruCache and ExpiringLruCache: https://github.com/spray/spray/blob/master/spray-caching/src/main/scala/cc/spray/caching/LruCache.scala
+.. _Cache: https://github.com/spray/spray/blob/master/spray-caching/src/main/scala/spray/caching/Cache.scala
+.. _SimpleLruCache and ExpiringLruCache: https://github.com/spray/spray/blob/master/spray-caching/src/main/scala/spray/caching/LruCache.scala
 .. _concurrentlinkedhashmap: http://code.google.com/p/concurrentlinkedhashmap/

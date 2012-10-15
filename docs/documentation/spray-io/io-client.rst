@@ -27,11 +27,11 @@ Examples
 One example of a network client based on the ``IOClient`` is the *spray-can* :ref:`HttpClient`. You might find
 `its sources`__ quite readable.
 
-__ https://github.com/spray/spray/blob/master/spray-can/src/main/scala/cc/spray/can/client/HttpClient.scala
+__ https://github.com/spray/spray/blob/master/spray-can/src/main/scala/spray/can/client/HttpClient.scala
 
 Another (admittedly very contrived and overly simplified) example is presented here:
 
-.. includecode:: ../code/docs/IOClientExamplesSpec.scala
+.. includecode:: code/docs/IOClientExamplesSpec.scala
    :snippet: example-1
 
 Note than this example uses blocking calls to wait for future results, which is something that you probably do not
@@ -47,6 +47,6 @@ in the actors companion object. In this regard the ``IOClient`` is no exception,
 that an ``IOClient`` works with in `its companion object`__
 
 __ sources_
-.. _sources: https://github.com/spray/spray/blob/master/spray-io/src/main/scala/cc/spray/io/IOClient.scala
+.. _sources: https://github.com/spray/spray/blob/master/spray-io/src/main/scala/spray/io/IOClient.scala
 
 
