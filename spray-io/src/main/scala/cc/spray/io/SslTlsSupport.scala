@@ -24,31 +24,24 @@ import javax.net.ssl.SSLEngineResult.HandshakeStatus._
 import SSLEngineResult.Status._
 import collection.mutable.Queue
 import annotation.tailrec
-import org.eclipse.jetty.npn.NextProtoNego.ServerProvider
-import org.eclipse.jetty.npn.NextProtoNego
 
 object SslTlsSupport {
   def apply(engineProvider: PipelineContext => SSLEngine, log: LoggingAdapter,
-            sslEnabled: PipelineContext => Boolean = _ => true,
-            supportedProtocols: Option[TlsNpnSupportedProtocols] = None): PipelineStage = {
+            sslEnabled: PipelineContext => Boolean = _ => true): PipelineStage = {
     new DoublePipelineStage {
       def build(context: PipelineContext, commandPL: CPL, eventPL: EPL): Pipelines =
         if (sslEnabled(context)) new SslPipelines(context, commandPL, eventPL)
         else Pipelines(commandPL, eventPL)
 
-      final class SslPipelines(context: PipelineContext, commandPL: CPL, _eventPL: EPL) extends Pipelines {
+      final class SslPipelines(context: PipelineContext, commandPL: CPL, eventPL: EPL) extends Pipelines {
         val engine = engineProvider(context)
 
-        var eventPLUpstream = _eventPL
-        var commandPLTop: CPL = sslCommandPipeline
+        context.self ! EngineCreated(engine)
 
         val pendingSends = Queue.empty[Send]
         var inboundReceptacle: ByteBuffer = _ // holds incoming data that are too small to be decrypted yet
 
-        // proxy to the top as it is currently chosen
-        def commandPipeline: CPL = { c => commandPLTop(c) }
-
-        def sslCommandPipeline: CPL = {
+        val commandPipeline: CPL = {
           case x@ IOPeer.Send(buffers, ack) =>
             if (pendingSends.isEmpty) withTempBuf(encrypt(Send(x), _))
             else pendingSends += Send(x)
@@ -74,41 +67,9 @@ object SslTlsSupport {
               try engine.closeInbound()
               catch { case e: SSLException => } // ignore warning about possible possible truncation attacks
             }
-            eventPLUpstream(x)
+            eventPL(x)
 
-          case ev => eventPLUpstream(ev)
-        }
-
-        if (supportedProtocols.isDefined) { // TLS-NPN-Nego should be used
-          val supported = supportedProtocols.get
-          engineProvider match {
-            case _: ServerSSLEngineProvider =>
-              object NPNProvider extends ServerProvider {
-                import scala.collection.JavaConverters._
-                val _protocols = supported.pipelinesPerProtocol.map(_._1)
-
-                def unsupported() {
-                  protocolSelected(supported.defaultProtocol)
-                }
-                def protocols(): java.util.List[String] = _protocols.asJava
-                def protocolSelected(protocol: String) {
-                  val stage = supported.pipelinesPerProtocol.find(_._1 == protocol).get._2
-                  val pls = stage.buildPipelines(context, sslCommandPipeline, _ => () /* we ignore things flowing out of the pipe at the top */)
-
-                  // the idea is that we rewire the pipelines so that the chosen protocol
-                  // pipeline is now on top of us
-                  eventPLUpstream = pls.eventPipeline
-                  commandPLTop = pls.commandPipeline
-                }
-              }
-              // we already make sure that we choose the first protocol in case *we* don't support
-              // NPN (bootCP missing)
-              NPNProvider.unsupported()
-              NextProtoNego.put(engine, NPNProvider)
-
-            case _ =>
-              throw new UnsupportedOperationException("TLS-NPN not supported for SSL clients yet")
-          }
+          case ev => eventPL(ev)
         }
 
         /**
@@ -157,7 +118,7 @@ object SslTlsSupport {
           tempBuf.clear()
           val result = engine.unwrap(buffer, tempBuf)
           tempBuf.flip()
-          if (tempBuf.remaining > 0) eventPLUpstream(IOPeer.Received(context.handle, tempBuf.copy))
+          if (tempBuf.remaining > 0) eventPL(IOPeer.Received(context.handle, tempBuf.copy))
           result.getStatus match {
             case OK => result.getHandshakeStatus match {
               case NOT_HANDSHAKING | FINISHED =>
@@ -238,6 +199,8 @@ object SslTlsSupport {
     val Empty = new Send(new Array(0), false)
     def apply(x: IOPeer.Send) = new Send(x.buffers.toArray, x.ack)
   }
+
+  case class EngineCreated(sslEngine: SSLEngine) extends Event
 }
 
 private[io] sealed abstract class SSLEngineProviderCompanion {
@@ -293,8 +256,4 @@ object SSLContextProvider {
       def apply(plc: PipelineContext) = f(plc)
     }
   }
-}
-
-case class TlsNpnSupportedProtocols(defaultProtocol: String, pipelinesPerProtocol: (String, PipelineStage)*) {
-  require(pipelinesPerProtocol.exists(_._1 == defaultProtocol))
 }
