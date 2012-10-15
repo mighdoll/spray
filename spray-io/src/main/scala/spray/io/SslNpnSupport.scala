@@ -13,20 +13,40 @@ import org.eclipse.jetty.npn.NextProtoNego
 object SslNpnSupport {
   def apply(supported: TlsNpnSupportedProtocols, log: LoggingAdapter, server: Boolean)(sslStage: PipelineStage): PipelineStage = new PipelineStage {
     def build(context: PipelineContext, commandPL: CPL, eventPL: EPL): Pipelines = new Pipelines {
-      var handshakeReady = false
-      val pendingCommands = Queue.empty[(Any, ActorRef)]
+      // This stage has three states:
+      //
+      //   - Waiting for an engine to register the npn handler to. In this state
+      //     we don't let any events get to the Ssl stage because we might otherwise miss
+      //     the Npn callbacks. After the npn callback is registered we replay those events.
+      //   - Waiting for Npn negotiation to be finished. In this state we don't expect
+      //     any events to flow out of the Ssl stage. If we receive commands we queue them
+      //     for later when NPN is finished and the final pipelines have been built.
+      //   - Npn was finished and the callbacks have installed the final protocol-specific
+      //     pipelines.
+
+      var engineCreated = false
       val pendingEvents = Queue.empty[(Event, ActorRef)]
+
+      var handshakeReady = false
+      val pendingCommands = Queue.empty[(Command, ActorRef)]
 
       val sslPipes = sslStage.build(context, commandPL, e => upstreamEventPL(e))
 
-      var upstreamEventPL = eventPL
+      var upstreamEventPL: EPL = {
+        case e if !handshakeReady =>
+          throw new IllegalStateException("Unexpected event received before NPN "+e)
+        case e => eventPL(e)
+      }
       var downstreamCommandPL: CPL = sslCommandPipeline
 
       // it is important to introduce the proxy to the var here
       def commandPipeline = { c => downstreamCommandPL(c) }
 
       def sslCommandPipeline: CPL = {
-        case s: IOPeer.Send =>
+        // if we are the client we receive the send which from below
+        // which should trigger the ssl handshake with the remote party.
+        case s: IOPeer.Send if !handshakeReady =>
+          require(!server)
           sslPipes.commandPipeline(s)
 
         case cmd if !handshakeReady =>
@@ -36,12 +56,12 @@ object SslNpnSupport {
         case c => sslPipes.commandPipeline(c)
       }
       def eventPipeline = {
-        case e: IOPeer.Received => sslPipes.eventPipeline(e)
-
         case EngineCreated(sslEngine) => registerNpn(sslEngine)
 
-        case e if !handshakeReady =>
-          log.debug("Queing event for after handshake: {}", e)
+        // we need to make sure that the Npn handler is registered before
+        // we let the ssl stage process any incoming data
+        case e if !engineCreated =>
+          log.debug("Queing event for after engine registration: {}", e)
           pendingEvents.enqueue((e, context.sender))
 
         case e => sslPipes.eventPipeline(e)
@@ -112,6 +132,7 @@ object SslNpnSupport {
             context.self ! IOPeer.Send(ByteBuffer.allocate(0))
         }
 
+        engineCreated = true
         pendingEvents.foreach { case (cmd, sender) => context.self.tell(cmd, sender) }
         pendingEvents.clear()
       }
