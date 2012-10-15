@@ -36,7 +36,10 @@ object SslNpnSupport {
         case c => sslPipes.commandPipeline(c)
       }
       def eventPipeline = {
+        case e: IOPeer.Received => sslPipes.eventPipeline(e)
+
         case EngineCreated(sslEngine) => registerNpn(sslEngine)
+
         case e if !handshakeReady =>
           log.debug("Queing event for after handshake: {}", e)
           pendingEvents.enqueue((e, context.sender))
