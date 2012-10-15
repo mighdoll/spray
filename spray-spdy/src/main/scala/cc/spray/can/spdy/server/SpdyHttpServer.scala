@@ -191,7 +191,9 @@ object SpdyHttpServer {
       (IdleTimeout > 0) ? ConnectionTimeouts(IdleTimeout, log)
 
     //(IdleTimeout > 0) ? ConnectionTimeouts(IdleTimeout, log) >>
-    SSLEncryption ? SslTlsSupport(sslEngineProvider, log, supportedProtocols = Some(protocols)) >>
+    SslNpnSupport(protocols, log, server = true) {
+      SslTlsSupport(sslEngineProvider, log)
+    } >>
     (ReapingCycle > 0 && (IdleTimeout > 0 || RequestTimeout > 0)) ? TickGenerator(ReapingCycle)
   }
 
