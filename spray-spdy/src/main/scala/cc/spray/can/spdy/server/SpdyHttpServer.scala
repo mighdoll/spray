@@ -192,7 +192,6 @@ object SpdyHttpServer {
       ResponseRendering(settings) >>
       (IdleTimeout > 0) ? ConnectionTimeouts(IdleTimeout, log)
 
-    //(IdleTimeout > 0) ? ConnectionTimeouts(IdleTimeout, log) >>
     SslNpnSupport(protocols, log, server = true) {
       SslTlsSupport(sslEngineProvider, log)
     } >>
