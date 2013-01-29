@@ -27,4 +27,5 @@ object Dependencies {
   val specs2        = "org.specs2"                              %%  "specs2"                      % "1.12.3" cross CrossVersion.full
   val sprayJson     = "io.spray"                                %%  "spray-json"                  % "1.2.3"  cross CrossVersion.full
   val twirlApi      = "io.spray"                                %%  "twirl-api"                   % "0.6.1"  cross CrossVersion.full
+  val bridj         = "com.nativelibs4java"                     %   "bridj"                       % "0.6.2"
 }
