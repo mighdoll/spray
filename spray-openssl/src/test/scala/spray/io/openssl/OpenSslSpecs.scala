@@ -103,6 +103,8 @@ class OpenSslSpecs extends TestKitBase with Specification {
     }
   }
 
+  step { system.shutdown() }
+
   class SimpleTlsStateMachine {
     var isEncrypted = false
 
