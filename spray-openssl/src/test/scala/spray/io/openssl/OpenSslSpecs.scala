@@ -11,6 +11,7 @@ import akka.testkit.{TestProbe, TestKitBase}
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import annotation.tailrec
+import spray.util.ConnectionCloseReasons.PeerClosed
 
 class OpenSslSpecs extends TestKitBase with Specification {
   implicit lazy val system = ActorSystem()
@@ -284,6 +285,10 @@ class OpenSslSpecs extends TestKitBase with Specification {
             }
           }, handler !, handler !)
         (pipes.commandPipeline, pipes.eventPipeline)
+      }
+
+      override def postStop() {
+        stageEventPL(IOPeer.Closed(null, PeerClosed))
       }
     }
 
