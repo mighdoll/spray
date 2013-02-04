@@ -93,7 +93,7 @@ class OpenSslSpecs extends TestKitBase with Specification {
     system.shutdown()
     system.awaitTermination()
 
-    OpenSSL.shutdown()
+    api.OpenSSL.shutdown()
   }
 
   def withEstablishedConnection[T](body: EstablishedConnectionSetup => T): T = {
