@@ -85,7 +85,8 @@ object OpenSSLClientConfigurator {
       def acceptServerCertificate(certificate: Certificate): this.type =
         andReturnSelf { certificates ::= X509Certificate(certificate) }
 
-      def dontAcceptDefaultVerifyPaths(): this.type = ???
+      def dontAcceptDefaultVerifyPaths(): this.type =
+        andReturnSelf { useDefaultVerifyPaths = false }
 
       def setSessionHandler(handler: SessionHandler): this.type = ???
 
