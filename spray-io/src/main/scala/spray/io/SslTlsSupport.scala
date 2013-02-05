@@ -236,8 +236,11 @@ object SslTlsSupport {
   }
 }
 
+trait StageProvider {
+  def stage: PipelineStage
+}
 private[io] sealed abstract class SSLEngineProviderCompanion {
-  type Self <: (PipelineContext => SSLEngine)
+  type Self <: StageProvider
   protected def clientMode: Boolean
 
   protected def fromFunc(f: PipelineContext => SSLEngine): Self
@@ -245,40 +248,36 @@ private[io] sealed abstract class SSLEngineProviderCompanion {
   def apply(f: SSLEngine => SSLEngine)(implicit cp: SSLContextProvider): Self =
     fromFunc(default.andThen(f))
 
-  implicit def default(implicit cp: SSLContextProvider): Self =
-    fromFunc { plc =>
-      val sslContext = cp(plc)
-      val engine = plc.connection.remoteAddress match {
-        case Some(address) => sslContext.createSSLEngine(address.getHostName, address.getPort)
-        case None => sslContext.createSSLEngine()
-      }
-      engine.setUseClientMode(clientMode)
-      engine
+  implicit def defaultProvider(implicit cp: SSLContextProvider): Self =
+    fromFunc(default)
+
+  implicit def default(implicit cp: SSLContextProvider): PipelineContext => SSLEngine = { plc =>
+    val sslContext = cp(plc)
+    val engine = plc.connection.remoteAddress match {
+      case Some(address) => sslContext.createSSLEngine(address.getHostName, address.getPort)
+      case None => sslContext.createSSLEngine()
     }
+    engine.setUseClientMode(clientMode)
+    engine
+  }
 }
 
-trait ServerSSLEngineProvider extends (PipelineContext => SSLEngine)
+case class ServerSSLEngineProvider(stage: PipelineStage) extends StageProvider
 object ServerSSLEngineProvider extends SSLEngineProviderCompanion {
   type Self = ServerSSLEngineProvider
   protected def clientMode = false
 
-  implicit def fromFunc(f: PipelineContext => SSLEngine): Self = {
-    new ServerSSLEngineProvider {
-      def apply(plc: PipelineContext) = f(plc)
-    }
-  }
+  implicit def fromFunc(f: PipelineContext => SSLEngine): Self =
+    new ServerSSLEngineProvider(SslTlsSupport(f, encryptIfUntagged = true))
 }
 
-trait ClientSSLEngineProvider extends (PipelineContext => SSLEngine)
+case class ClientSSLEngineProvider(stage: PipelineStage) extends StageProvider
 object ClientSSLEngineProvider extends SSLEngineProviderCompanion {
   type Self = ClientSSLEngineProvider
   protected def clientMode = true
 
-  implicit def fromFunc(f: PipelineContext => SSLEngine): Self = {
-    new ClientSSLEngineProvider {
-      def apply(plc: PipelineContext) = f(plc)
-    }
-  }
+  implicit def fromFunc(f: PipelineContext => SSLEngine): Self =
+    new ClientSSLEngineProvider(SslTlsSupport(f, encryptIfUntagged = false))
 }
 
 trait SSLContextProvider extends (PipelineContext => SSLContext) // source-quote-SSLContextProvider

@@ -176,7 +176,7 @@ object HttpServer {
     RequestParsing(ParserSettings, VerboseErrorMessages) >>
     ResponseRendering(settings) >>
     ConnectionTimeouts(IdleTimeout) ? (ReapingCycle > 0 && IdleTimeout > 0) >>
-    SslTlsSupport(sslEngineProvider) ? SSLEncryption >>
+    sslEngineProvider.stage ? SSLEncryption >>
     TickGenerator(ReapingCycle) ? (ReapingCycle > 0 && (IdleTimeout > 0 || RequestTimeout > 0))
   }
 

@@ -46,7 +46,7 @@ object HttpClientConnection {
     ResponseParsing(ParserSettings) >>
     RequestRendering(settings) >>
     ConnectionTimeouts(IdleTimeout) ? (ReapingCycle > 0 && IdleTimeout > 0) >>
-    SslTlsSupport(sslEngineProvider, encryptIfUntagged = false) >>
+    sslEngineProvider.stage >>
     TickGenerator(ReapingCycle) ? (ReapingCycle > 0 && (IdleTimeout > 0 || RequestTimeout > 0))
   }
 
