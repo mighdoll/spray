@@ -12,7 +12,7 @@ import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import annotation.tailrec
 import spray.util.ConnectionCloseReasons.PeerClosed
-import scala.concurrent.duration._
+import spray.io.SslTlsSupport.Enabling
 
 class OpenSslSpecs extends TestKitBase with Specification {
   implicit lazy val system = ActorSystem()
@@ -349,7 +349,9 @@ class OpenSslSpecs extends TestKitBase with Specification {
               def key: Key = unsupported
               def handler: ActorRef = unsupported
               def ioBridge: ActorRef = unsupported
-              def tag: Any = null
+              def tag: Any = new Enabling {
+                def encrypt(ctx: PipelineContext): Boolean = true
+              }
 
               override def remoteAddress: InetSocketAddress = ???
             }
