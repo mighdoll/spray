@@ -27,7 +27,8 @@ object BuildSettings {
       "-language:implicitConversions",
       "-Xlog-reflective-calls",
       "-Ywarn-adapted-args"
-    )
+    ),
+    javacOptions          ++= Seq("-target", "1.6", "-source", "1.6")
   )
 
   lazy val sprayModuleSettings = basicSettings ++ NightlyBuildSupport.settings ++ seq(
