@@ -97,7 +97,10 @@ final class IOBridge private[io](settings: IOBridge.Settings, isRoot: Boolean = 
           case Send(handle, buffers, ack) => send(handle, buffers, ack)
           case StopReading(handle)        => handle.keyImpl.disable(OP_READ)
           case ResumeReading(handle)      => handle.keyImpl.enable(OP_READ)
-          case Register(handle)           => register(handle)
+          case Register(handle, ack)           =>
+            register(handle)
+            if (ack != null)
+              sender ! ack
           case Close(handle, reason)      => scheduleClose(handle, reason)
         }
       case cc: ConnectionCommand =>
@@ -229,7 +232,7 @@ final class IOBridge private[io](settings: IOBridge.Settings, isRoot: Boolean = 
       while (iterator.hasNext) {
         val key = iterator.next
         if (key.isValid) {
-          if (key.isWritable) write(key) // prefer writing over reading if both ops are ready
+          if (key.isWritable && key.attachment().isInstanceOf[Handle]) write(key) // prefer writing over reading if both ops are ready
           else if (key.isReadable) read(key)
           else if (key.isAcceptable) accept(key)
           else if (key.isConnectable) connect(key)
@@ -494,7 +497,7 @@ object IOBridge {
   trait ConnectionCommand extends Command {
     def handle: Handle
   }
-  case class Register(handle: Handle) extends ConnectionCommand
+  case class Register(handle: Handle, ack: AnyRef = null) extends ConnectionCommand
   case class Close(handle: Handle,
                    reason: CloseCommandReason) extends ConnectionCommand
   case class Send(handle: Handle,

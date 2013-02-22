@@ -34,18 +34,19 @@ abstract class IOClient(val rootIoBridge: ActorRef) extends IOPeer {
     log.info("Stopped {}", self.path)
   }
 
+  case class Registered(commander: ActorRef, handle: Connection)
+
   def receive: Receive = {
     case cmd: Connect =>
       rootIoBridge.tell(cmd, Reply.withContext(sender))
 
     case Reply(IOBridge.Connected(key, tag), commander: ActorRef) =>
       val handle = createConnectionHandle(key, sender, commander, tag)
-      sender ! IOBridge.Register(handle)
-      commander.tell(Connected(handle), handle.handler)
+      sender ! IOBridge.Register(handle, Registered(commander, handle))
 
-    case ev@ Closed(connection: Connection, _) =>
-      // inform the original connection commander of the closing
-      connection.commander ! ev
+    case Registered(commander, handle) =>
+      commander.tell(Connected(handle), handle.handler)
+      handle.handler ! Connected(handle)
 
     case Reply(Status.Failure(CommandException(Connect(remoteAddress, _, _), msg, cause)), commander: ActorRef) =>
       commander ! Status.Failure(IOClientException("Couldn't connect to " + remoteAddress, cause))
