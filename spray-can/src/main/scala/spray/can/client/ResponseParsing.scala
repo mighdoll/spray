@@ -17,7 +17,6 @@
 package spray.can.client
 
 import java.nio.ByteBuffer
-import scala.collection.mutable
 import scala.annotation.tailrec
 import akka.event.{Logging, LoggingAdapter}
 import spray.can.rendering.HttpRequestPartRenderingContext
@@ -27,6 +26,7 @@ import spray.util.ConnectionCloseReasons._
 import spray.can.parsing._
 import spray.http._
 import spray.io._
+import collection.immutable.Queue
 
 
 object ResponseParsing {
@@ -39,7 +39,7 @@ object ResponseParsing {
       def build(context: PipelineContext, commandPL: CPL, eventPL: EPL): Pipelines =
         new Pipelines {
           var currentParsingState: ParsingState = UnmatchedResponseErrorState
-          val openRequestMethods = mutable.Queue.empty[HttpMethod]
+          var openRequestMethods = Queue.empty[HttpMethod]
 
           def startParser = new EmptyResponseParser(settings, openRequestMethods.head == HttpMethods.HEAD)
 
@@ -55,7 +55,9 @@ object ResponseParsing {
               case x: HttpMessagePartCompletedState => x.toHttpMessagePart match {
                 case part: HttpMessageEnd =>
                   eventPL(HttpEvent(part))
-                  openRequestMethods.dequeue()
+                  val head = openRequestMethods.head
+                  openRequestMethods = openRequestMethods.tail
+
                   if (openRequestMethods.isEmpty) {
                     currentParsingState = UnmatchedResponseErrorState
                     if (buffer.remaining > 0) parse(buffer) // trigger error if buffer is not empty
@@ -85,7 +87,7 @@ object ResponseParsing {
           val commandPipeline: CPL = {
             case x: HttpRequestPartRenderingContext =>
               def register(req: HttpRequest) {
-                openRequestMethods.enqueue(req.method)
+                openRequestMethods = openRequestMethods.enqueue(req.method)
                 if (currentParsingState eq UnmatchedResponseErrorState) currentParsingState = startParser
               }
               x.requestPart match {

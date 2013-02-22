@@ -28,6 +28,7 @@ import akka.event.Logging
 import akka.actor._
 import spray.util._
 import SelectionKey._
+import collection.immutable.Queue
 
 
 final class IOBridge private[io](settings: IOBridge.Settings, isRoot: Boolean = true)
@@ -120,8 +121,8 @@ final class IOBridge private[io](settings: IOBridge.Settings, isRoot: Boolean = 
     if (debug.enabled)
       debug.log(handle.tag, "Scheduling {} bytes in {} buffers for writing (ack: {})", buffers.map(_.remaining).sum,
         buffers.size, ack)
-    handle.writeQueue ++= buffers
-    if (ack.isDefined) handle.writeQueue += Ack(sender, ack.get)
+    handle.writeQueue = handle.writeQueue ++ buffers
+    if (ack.isDefined) handle.writeQueue = handle.writeQueue.enqueue(Ack(sender, ack.get))
     handle.keyImpl.enable(OP_WRITE)
   }
 
@@ -141,7 +142,7 @@ final class IOBridge private[io](settings: IOBridge.Settings, isRoot: Boolean = 
           close(handle, reason)
       else {
         debug.log(handle.tag, "Scheduling connection close after writeQueue flush")
-        handle.writeQueue += reason
+        handle.writeQueue = handle.writeQueue.enqueue(reason)
       }
     }
   }
@@ -243,17 +244,18 @@ final class IOBridge private[io](settings: IOBridge.Settings, isRoot: Boolean = 
     debug.log(handle.tag, "Writing to connection")
     val channel = selectionKey.channel.asInstanceOf[SocketChannel]
     val oldBytesWritten = bytesWritten
-    val writeQueue = handle.writeQueue
 
     @tailrec
     def writeToChannel() {
-      if (!writeQueue.isEmpty) {
-        writeQueue.dequeue() match {
+      if (!handle.writeQueue.isEmpty) {
+        val head = handle.writeQueue.head
+        handle.writeQueue = handle.writeQueue.tail
+        head match {
           case buf: ByteBuffer =>
             bytesWritten += channel.write(buf)
             if (buf.remaining == 0) writeToChannel() // we continue with the next buffer
             else {
-              buf +=: writeQueue // we cannot drop the head and need to continue with it next time
+              handle.writeQueue = buf +: handle.writeQueue // we cannot drop the head and need to continue with it next time
               debug.log(handle.tag, "Wrote {} bytes, more pending", bytesWritten - oldBytesWritten)
             }
           case Ack(receiver, msg) =>
@@ -437,7 +439,7 @@ object IOBridge {
     // the writeQueue contains instances of either ByteBuffer, CloseCommandReason or Ack          // hide
     // we don't introduce a dedicated sum type for this since we want to save the extra           // hide
     // allocation that would be required for wrapping the ByteBuffers                             // hide
-    private[IOBridge] val writeQueue = collection.mutable.Queue.empty[AnyRef]                     // hide
+    private[IOBridge] var writeQueue = Queue.empty[AnyRef]                     // hide
   }
   //#
 

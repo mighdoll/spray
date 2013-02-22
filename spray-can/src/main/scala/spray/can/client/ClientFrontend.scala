@@ -16,7 +16,6 @@
 
 package spray.can.client
 
-import scala.collection.mutable
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import akka.event.{Logging, LoggingAdapter}
 import akka.actor.ActorRef
@@ -25,6 +24,7 @@ import spray.can.rendering.HttpRequestPartRenderingContext
 import spray.util.ConnectionCloseReasons._
 import spray.http._
 import spray.io._
+import collection.immutable.Queue
 
 
 object ClientFrontend {
@@ -37,7 +37,7 @@ object ClientFrontend {
           import context.connection
           val host = connection.remoteAddress.getHostName
           val port = connection.remoteAddress.getPort
-          val openRequests = mutable.Queue.empty[RequestRecord]
+          var openRequests = Queue.empty[RequestRecord]
           var requestTimeout = initialRequestTimeout
 
           val commandPipeline: CPL = {
@@ -46,14 +46,14 @@ object ClientFrontend {
                 case x: HttpRequest =>
                   if (openRequests.isEmpty || openRequests.last.timestamp > 0) {
                     render(wrapper)
-                    openRequests.enqueue(new RequestRecord(x, context.sender, timestamp = System.currentTimeMillis))
+                    openRequests = openRequests.enqueue(new RequestRecord(x, context.sender, timestamp = System.currentTimeMillis))
                   } else warning.log(connection.tag, "Received new HttpRequest before previous chunking request was " +
                     "finished, ignoring...")
 
                 case x: ChunkedRequestStart =>
                   if (openRequests.isEmpty || openRequests.last.timestamp > 0) {
                     render(wrapper)
-                    openRequests.enqueue(new RequestRecord(x, context.sender, timestamp = 0))
+                    openRequests = openRequests.enqueue(new RequestRecord(x, context.sender, timestamp = 0))
                   } else warning.log(connection.tag, "Received new ChunkedRequestStart before previous chunking " +
                     "request was finished, ignoring...")
 
@@ -79,7 +79,9 @@ object ClientFrontend {
           val eventPipeline: EPL = {
             case HttpEvent(x: HttpMessageEnd) =>
               if (!openRequests.isEmpty) {
-                dispatch(openRequests.dequeue().sender, x)
+                val head = openRequests.head
+                openRequests = openRequests.tail
+                dispatch(head.sender, x)
               } else {
                 warning.log(connection.tag, "Received unmatched {}, closing connection due to protocol error", x)
                 commandPL(HttpClient.Close(ProtocolError("Received unmatched response part " + x)))
