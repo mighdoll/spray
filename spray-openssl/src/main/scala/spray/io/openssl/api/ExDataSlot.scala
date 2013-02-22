@@ -16,6 +16,10 @@ trait WithExDataMethods[T] {
   def setExData(idx: Int, arg: Long): Unit
   def getExData(idx: Int): Long
 
+  def setWeak[E <: AnyRef](slot: ExDataSlot[T, E], data: E): Unit = {
+    val ref = JNI.newWeakGlobalRef(data)
+    setExData(slot.idx, ref)
+  }
   def update[E <: AnyRef](slot: ExDataSlot[T, E], data: E): Unit = setExData(slot.idx, OpenSSL.createGlobalRef(data))
   def apply[E <: AnyRef](slot: ExDataSlot[T, E]): E = JNI.refToObject(getExData(slot.idx)).asInstanceOf[E]
 }

@@ -131,7 +131,9 @@ object OpenSSLClientConfigurator {
                 }
               else new SimpleSession(bytes)
 
-            handler.incomingSession(ssl(pipelineContextSlot), createSession())
+            val pipeCtx = ssl(pipelineContextSlot)
+            // check because of weak ref
+            if (pipeCtx != null) handler.incomingSession(pipeCtx, createSession())
           }
 
           // ... register a callback to do it on our side
@@ -146,7 +148,7 @@ object OpenSSLClientConfigurator {
         def sslFactory(pipeCtx: PipelineContext): SSL = {
           val ssl = ctx.newSSL()
 
-          ssl(pipelineContextSlot) = pipeCtx
+          ssl.setWeak(pipelineContextSlot, pipeCtx)
 
           for {
             handler <- sessionHandler
