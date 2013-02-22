@@ -9,6 +9,7 @@ import org.bridj.{JNI, Pointer}
  */
 trait ExDataSlot[T, E <: AnyRef] {
   def idx: Int
+  def name: String
 }
 
 trait WithExDataMethods[T] {
@@ -22,8 +23,9 @@ trait WithExDataMethods[T] {
 trait WithExDataCompanion[T] {
   def newExDataIndex: (Long, Long, Long, Long, Pointer[CRYPTO_EX_free]) => Int
 
-  def createExDataSlot[E <: AnyRef](): ExDataSlot[T, E] =
+  def createExDataSlot[E <: AnyRef](_name: String): ExDataSlot[T, E] =
     new ExDataSlot[T, E] {
       val idx = newExDataIndex(0, 0, 0, 0, OpenSSL.exDataFree.toPointer)
+      def name = _name
     }
 }

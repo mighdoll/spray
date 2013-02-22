@@ -62,8 +62,8 @@ trait OpenSSLClientConfigurator extends OpenSSLConfigurator {
 object OpenSSLClientConfigurator {
   // we save a reference of the associated pipelineCtx into the native data structure
   // and reserve a slot here for this purpose
-  val pipelineContextSlot = SSL.createExDataSlot[PipelineContext]()
-  val sessionHandlerSlot = SSLCtx.createExDataSlot[(SSL, SSL_SESSION) => Unit]()
+  val pipelineContextSlot = SSL.createExDataSlot[PipelineContext]("SSL pipelineContext")
+  val sessionHandlerSlot = SSLCtx.createExDataSlot[(SSL, SSL_SESSION) => Unit]("CTX session handler")
 
   val sessionCB = new NewSessionCB {
     def apply(ssl: SSL, session: SSL_SESSION) {
