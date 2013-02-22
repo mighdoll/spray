@@ -46,14 +46,14 @@ object ClientFrontend {
                 case x: HttpRequest =>
                   if (openRequests.isEmpty || openRequests.last.timestamp > 0) {
                     render(wrapper)
-                    openRequests = openRequests.enqueue(new RequestRecord(x, context.sender, timestamp = System.currentTimeMillis))
+                    openRequests = openRequests.enqueue(new RequestRecord(context.sender, timestamp = System.currentTimeMillis))
                   } else warning.log(connection.tag, "Received new HttpRequest before previous chunking request was " +
                     "finished, ignoring...")
 
                 case x: ChunkedRequestStart =>
                   if (openRequests.isEmpty || openRequests.last.timestamp > 0) {
                     render(wrapper)
-                    openRequests = openRequests.enqueue(new RequestRecord(x, context.sender, timestamp = 0))
+                    openRequests = openRequests.enqueue(new RequestRecord(context.sender, timestamp = 0))
                   } else warning.log(connection.tag, "Received new ChunkedRequestStart before previous chunking " +
                     "request was finished, ignoring...")
 
@@ -136,7 +136,6 @@ object ClientFrontend {
   }
 
   private class RequestRecord(
-    val request: HttpRequestPart with HttpMessageStart,
     val sender: ActorRef,
     var timestamp: Long
   )
