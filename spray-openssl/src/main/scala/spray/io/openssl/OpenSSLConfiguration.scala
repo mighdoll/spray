@@ -115,6 +115,7 @@ object OpenSSLClientConfigurator {
           // enable session caching but disable internal caching and, instead, ...
           ctx.setSessionCacheMode(SSLCtx.SSL_SESS_CACHE_CLIENT | SSLCtx.SSL_SESS_CACHE_NO_INTERNAL)
 
+          // ... register a callback to do it on our side
           ctx(sessionHandlerSlot) = (ssl: SSL, session: SSL_SESSION) => {
             val bytes = session.toBytes
 
@@ -135,8 +136,6 @@ object OpenSSLClientConfigurator {
             // check because of weak ref
             if (pipeCtx != null) handler.incomingSession(pipeCtx, createSession())
           }
-
-          // ... register a callback to do it on our side
           ctx.setNewSessionCallback(sessionCB)
         }
 
