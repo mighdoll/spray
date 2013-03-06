@@ -42,8 +42,7 @@ object OpenSslSupport {
         // that's a var because we want to `null` it out once `free()` has been called
         var ssl = sslFactory(context)
 
-        if (client) context.self ! StartHandshake
-        else ssl.setAcceptState()
+        if (!client) ssl.setAcceptState()
 
         val networkInterface = BIO.fromImpl(this)
         ssl.setBio(networkInterface, networkInterface)
@@ -90,7 +89,7 @@ object OpenSslSupport {
         }
 
         val eventPipeline: EPL = {
-          case StartHandshake =>
+          case IOClient.Connected(handle) if client =>
             debug("Starting handshake")
             ssl.connect()
 
@@ -201,8 +200,6 @@ object OpenSslSupport {
         }
       }
     }
-
-  case object StartHandshake extends Event
 
   object DirectBufferPool extends SslBufferPool[DirectBuffer] {
     // we feed ssl with chunks of 16384 because that seems to be the

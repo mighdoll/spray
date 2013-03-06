@@ -161,6 +161,7 @@ class OpenSslSpecs extends TestKitBase with Specification {
     // client hello
     transferToServer() must be_==(Seq(HandshakeMessage(ClientHello)))
 
+    setup.javaSslServer.commander.expectMsgType[IOClient.Connected]
     // server hello
     transferToClient() must be_==(Seq(HandshakeMessage(ServerHello)))
 
@@ -194,6 +195,7 @@ class OpenSslSpecs extends TestKitBase with Specification {
     transferToServer() must be_==(Seq(HandshakeMessage(ClientHello)))
 
     // server hello
+    setup.javaSslServer.commander.expectMsgType[IOClient.Connected]
     transferToClient() must be_==(Seq(HandshakeMessage(ServerHello)))
     transferToClient() must be_==(Seq(ChangeCipherSpec))
     transferToClient() must be_==(Seq(HandshakeMessage(EncryptedHandshakeMessage)))
@@ -339,8 +341,8 @@ class OpenSslSpecs extends TestKitBase with Specification {
       }
 
       val (stageCommandPL, stageEventPL) = {
-        val pipes =
-          stage.build(new PipelineContext {
+        val ctx =
+          new PipelineContext {
             def log = actor.log
 
             def connectionActorContext: ActorContext = context
@@ -355,7 +357,12 @@ class OpenSslSpecs extends TestKitBase with Specification {
 
               override def remoteAddress: InetSocketAddress = ???
             }
-          }, handler !, handler !)
+          }
+        val pipes =
+          stage.build(ctx, handler !, handler !)
+
+        pipes.eventPipeline(IOClient.Connected(ctx.connection))
+
         (pipes.commandPipeline, pipes.eventPipeline)
       }
 
