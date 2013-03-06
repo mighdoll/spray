@@ -6,7 +6,9 @@ import LibSSL._
 
 class SSLCtx private[openssl](pointer: Long) extends TypedPointer(pointer) with WithExDataMethods[SSLCtx] {
   def newSSL(): SSL = {
+
     val ssl = SSL_new(getPeer).returnChecked
+    SSL.newCalled()
     require(ssl != 0L)
     new SSL(ssl)
   }

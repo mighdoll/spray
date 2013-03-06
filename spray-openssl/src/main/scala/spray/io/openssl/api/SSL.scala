@@ -3,6 +3,7 @@ package api
 
 import org.bridj.{Pointer, JNI, TypedPointer}
 import LibSSL._
+import java.util.concurrent.atomic.AtomicInteger
 
 class SSL private[openssl](pointer: Long) extends TypedPointer(pointer) with WithExDataMethods[SSL] {
   def setBio(readBio: BIO, writeBio: BIO): Unit = SSL_set_bio(getPeer, readBio.getPeer, writeBio.getPeer)
@@ -33,7 +34,11 @@ class SSL private[openssl](pointer: Long) extends TypedPointer(pointer) with Wit
   def setExData(idx: Int, arg: Long): Unit = SSL_set_ex_data(getPeer, idx, arg).returnChecked
   def getExData(idx: Int): Long = SSL_get_ex_data(getPeer, idx)
 
-  def free(): Unit = SSL_free(getPeer)
+  def free(): Unit = {
+
+    SSL_free(getPeer)
+    SSL.freeCalled()
+  }
 
   def setCallback(f: (Int, Int) => Unit) {
     // FIXME: make sure the callback is not GC'd
@@ -57,4 +62,18 @@ object SSL extends WithExDataCompanion[SSL] {
   val SSL_OP_NO_TLSv1_1 = 0x10000000L
 
   def newExDataIndex: (Long, Long, Long, Long, Pointer[CRYPTO_EX_free]) => Int = LibSSL.SSL_get_ex_new_index
+
+  val newSSL = new AtomicInteger
+  val freedSSL = new AtomicInteger
+  def newCalled() {
+    newSSL.incrementAndGet()
+  }
+  def freeCalled() {
+    freedSSL.incrementAndGet()
+  }
+  def report() {
+    val news = newSSL.get()
+    val freed = freedSSL.get()
+    println("[SSL] New: %7d - Freed: %7d = %7d" format (news, freed, news - freed))
+  }
 }

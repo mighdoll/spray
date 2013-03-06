@@ -8,6 +8,7 @@ object OpenSSLUtils {
   def tcMallocDumpStats() {
     TCMalloc.MallocExtension_GetStats(tcstatsbuffer, 10000)
     println(tcstatsbuffer.getCString)
+    api.SSL.report()
   }
   def tcMallocFree() {
     TCMalloc.MallocExtension_ReleaseFreeMemory()
