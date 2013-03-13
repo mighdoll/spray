@@ -89,9 +89,10 @@ object OpenSslSupport {
         }
 
         val eventPipeline: EPL = {
-          case IOClient.Connected(handle) if client =>
+          case ev@IOClient.ConnectedWithCommander(handle, commander) if client =>
             debug("Starting handshake")
             ssl.connect()
+            eventPL(ev)
 
           case IOPeer.Received(_, buffer) =>
             debug("Enqueing %d received bytes from network" format buffer.remaining)

@@ -162,6 +162,7 @@ class OpenSslSpecs extends TestKitBase with Specification {
     transferToServer() must be_==(Seq(HandshakeMessage(ClientHello)))
 
     setup.javaSslServer.commander.expectMsgType[IOClient.Connected]
+    setup.openSslClient.commander.expectMsgType[IOClient.Connected]
     // server hello
     transferToClient() must be_==(Seq(HandshakeMessage(ServerHello)))
 
@@ -196,6 +197,7 @@ class OpenSslSpecs extends TestKitBase with Specification {
 
     // server hello
     setup.javaSslServer.commander.expectMsgType[IOClient.Connected]
+    setup.openSslClient.commander.expectMsgType[IOClient.Connected]
     transferToClient() must be_==(Seq(HandshakeMessage(ServerHello)))
     transferToClient() must be_==(Seq(ChangeCipherSpec))
     transferToClient() must be_==(Seq(HandshakeMessage(EncryptedHandshakeMessage)))
@@ -239,7 +241,7 @@ class OpenSslSpecs extends TestKitBase with Specification {
   object StageTestSetup {
     def apply(stage: PipelineStage): StageTestSetup = {
       val commander = TestProbe()
-      val actor = createStageActor(stage, commander.ref)
+      val actor = createStageActor(IOClient.ReportConnected >> stage, commander.ref)
       StageTestSetup(commander, actor, new SimpleTlsStateMachine)
     }
     def apply(provider: StageProvider): StageTestSetup =
@@ -334,6 +336,8 @@ class OpenSslSpecs extends TestKitBase with Specification {
     def unsupported = throw new UnsupportedOperationException
 
     class StageActor extends Actor with ActorLogging { actor =>
+      def stageActor: ActorRef = self
+
       def receive = {
         case cmd: Command => stageCommandPL(cmd)
         case event: Event => stageEventPL(event)
@@ -349,7 +353,7 @@ class OpenSslSpecs extends TestKitBase with Specification {
             val connection: Connection = new Connection {
               def commander: ActorRef = unsupported
               def key: Key = unsupported
-              def handler: ActorRef = unsupported
+              def handler: ActorRef = stageActor
               def ioBridge: ActorRef = unsupported
               def tag: Any = new Enabling {
                 def encrypt(ctx: PipelineContext): Boolean = true
@@ -358,10 +362,16 @@ class OpenSslSpecs extends TestKitBase with Specification {
               override def remoteAddress: InetSocketAddress = ???
             }
           }
-        val pipes =
-          stage.build(ctx, handler !, handler !)
 
-        pipes.eventPipeline(IOClient.Connected(ctx.connection))
+        def commandEnd: Command => Unit = {
+          case IOPeer.Tell(recv, message, sender) =>
+            recv.tell(message, sender)
+          case x => handler ! x
+        }
+        val pipes =
+          stage.build(ctx, commandEnd, handler !)
+
+        pipes.eventPipeline(IOClient.ConnectedWithCommander(ctx.connection, handler))
 
         (pipes.commandPipeline, pipes.eventPipeline)
       }

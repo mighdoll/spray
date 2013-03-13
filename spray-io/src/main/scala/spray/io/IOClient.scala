@@ -17,7 +17,7 @@
 package spray.io
 
 import spray.util.Reply
-import akka.actor.{Status, ActorRef}
+import akka.actor.{ActorRef, Status}
 import akka.spray.RefUtils
 
 
@@ -45,8 +45,7 @@ abstract class IOClient(val rootIoBridge: ActorRef) extends IOPeer {
       sender ! IOBridge.Register(handle, Registered(commander, handle))
 
     case Registered(commander, handle) =>
-      commander.tell(Connected(handle), handle.handler)
-      handle.handler ! Connected(handle)
+      handle.handler ! ConnectedWithCommander(handle, commander)
 
     case Reply(Status.Failure(CommandException(Connect(remoteAddress, _, _), msg, cause)), commander: ActorRef) =>
       commander ! Status.Failure(IOClientException("Couldn't connect to " + remoteAddress, cause))
@@ -54,6 +53,16 @@ abstract class IOClient(val rootIoBridge: ActorRef) extends IOPeer {
 }
 
 object IOClient {
+  object ReportConnected extends PipelineStage {
+    def build(context: PipelineContext, commandPL: CPL, eventPL: EPL): Pipelines = new Pipelines {
+      def commandPipeline = commandPL
+      def eventPipeline = {
+        case IOClient.ConnectedWithCommander(connection, commander) =>
+          commandPL(IOClient.Tell(commander, IOClient.Connected(connection), context.connection.handler))
+        case e => eventPL(e)
+      }
+    }
+  }
 
   case class IOClientException(msg: String, cause: Throwable = null) extends RuntimeException(msg, cause)
 
@@ -67,6 +76,7 @@ object IOClient {
 
   ////////////// EVENTS //////////////
   case class Connected(connection: Connection) extends Event
+  case class ConnectedWithCommander(connection: Connection, commander: ActorRef) extends Event
   type Closed = IOPeer.Closed;     val Closed = IOPeer.Closed
   type AckEvent = IOPeer.AckEvent; val AckEvent = IOPeer.AckEvent
   type Received = IOPeer.Received; val Received = IOPeer.Received

@@ -36,7 +36,8 @@ object OpenSSL {
     resPtr.getCString
   }
 
-  def SSLv23_method = LibSSL.SSLv23_method()
+  lazy val SSLv23_method = LibSSL.SSLv23_method()
+  lazy val SSLv23_client_method = LibSSL.SSLv23_client_method()
 
   val exDataFree = new CRYPTO_EX_free {
     def apply(parent: Long, data: Long, cryptoExData: Long, idx: Int, argl: Long, argp: Long) {
