@@ -77,7 +77,7 @@ object OpenSSLClientConfigurator {
     var `disable Tls v1.1 and v1.2`: Boolean = false
 
     def createCtx(): SSLCtx = {
-      val ctx = SSLCtx.create(OpenSSL.SSLv23_method)
+      val ctx = SSLCtx.create(OpenSSL.SSLv23_client_method)
       ctx.setMode(SSL.SSL_MODE_RELEASE_BUFFERS)
       ctx.setOptions(SSL.SSL_OP_NO_COMPRESSION | // because it needs huge buffers
                      SSL.SSL_OP_NO_SSLv2)         // because it's unsafe
