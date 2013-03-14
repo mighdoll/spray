@@ -76,7 +76,7 @@ object OpenSSLClientConfigurator {
     var ciphers: Option[String] = None
     var `disable Tls v1.1 and v1.2`: Boolean = false
 
-    def createCtx: SSLCtx = {
+    def createCtx(): SSLCtx = {
       val ctx = SSLCtx.create(OpenSSL.SSLv23_method)
       ctx.setMode(SSL.SSL_MODE_RELEASE_BUFFERS)
       ctx.setOptions(SSL.SSL_OP_NO_COMPRESSION | // because it needs huge buffers
@@ -103,7 +103,7 @@ object OpenSSLClientConfigurator {
       val keepNativeSessions = ext.Settings.keepNativeSessions
 
       def build(): ClientSSLEngineProvider = {
-        val ctx = createCtx
+        val ctx = createCtx()
 
         if (useDefaultVerifyPaths) ctx.setDefaultVerifyPaths()
         ctx.setVerify(if (verify) 1 else 0)
