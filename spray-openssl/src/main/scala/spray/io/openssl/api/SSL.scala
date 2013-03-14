@@ -1,7 +1,7 @@
 package spray.io.openssl
 package api
 
-import org.bridj.{Pointer, JNI, TypedPointer}
+import org.bridj._
 import LibSSL._
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -48,6 +48,15 @@ class SSL private[openssl](pointer: Long) extends TypedPointer(pointer) with Wit
     JNI.newGlobalRef(cb)
     SSL_set_info_callback(getPeer, cb.toPointer)
   }
+
+  var deleted = false
+  def deleteSessionCertChain() = {
+    if (!deleted) {
+      val chain = SSL_get_peer_cert_chain(getPeer)
+      sk_pop_free(chain, SSL.X509_free_address.getAddress)
+      deleted = true
+    }
+  }
 }
 
 object SSL extends WithExDataCompanion[SSL] {
@@ -76,4 +85,6 @@ object SSL extends WithExDataCompanion[SSL] {
     val freed = freedSSL.get()
     println("[SSL] New: %7d - Freed: %7d = %7d" format (news, freed, news - freed))
   }
+
+  val X509_free_address = BridJ.getNativeLibrary("ssl").getSymbol("X509_free")
 }

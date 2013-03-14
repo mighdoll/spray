@@ -130,6 +130,7 @@ object OpenSslSupport {
 
               written match {
                 case `toWrite` => // everything written, fall through
+                  ssl.deleteSessionCertChain()
                 case -1 => // couldn't write for some reason
                   // FIXME: add check that error is SSL_ERROR_WANT_READ or _WANT_WRITE
                   // and error out otherwise

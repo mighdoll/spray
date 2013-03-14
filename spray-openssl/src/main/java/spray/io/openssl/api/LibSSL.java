@@ -119,4 +119,7 @@ public class LibSSL {
     public static native EVP_PKEY EVP_PKCS82PKEY(@Ptr long pkcs8Key);
 
     public static native int X509_STORE_add_cert(X509_STORE store, X509Certificate x509);
+
+    public static native long SSL_get_peer_cert_chain(long ssl);
+    public static native long sk_pop_free(long chain, long func);
 }
