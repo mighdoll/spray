@@ -157,7 +157,7 @@ object OpenSSLClientConfigurator {
           ssl
         }
 
-        ClientSSLEngineProvider(OpenSslSupport(sslFactory, client = true) _)
+        ClientSSLEngineProvider(OpenSslSupport(sslFactory, client = true, freeCertificateChain = ext.Settings.freeCertificateChain) _)
       }
 
       def acceptCiphers(cipherDesc: String): this.type =

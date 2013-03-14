@@ -11,6 +11,7 @@ class OpenSSLExtension(system: ExtendedActorSystem) extends Extension {
     import config._
 
     val keepNativeSessions = getBoolean("keep-native-sessions")
+    val freeCertificateChain = getBoolean("free-certificate-chain")
   }
 
   def newClientConfigurator(): OpenSSLClientConfigurator = OpenSSLClientConfigurator(this)

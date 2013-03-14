@@ -24,7 +24,7 @@ object OpenSslSupport {
 
   def apply(sslFactory: PipelineContext => SSL,
             sslEnabled: PipelineContext => Boolean = shouldEncypt,
-            client: Boolean = true)(log: LoggingAdapter): PipelineStage =
+            client: Boolean = true, freeCertificateChain: Boolean = false)(log: LoggingAdapter): PipelineStage =
     new PipelineStage {
       def showError() {
         println(OpenSSL.lastErrorString)
@@ -130,7 +130,9 @@ object OpenSslSupport {
 
               written match {
                 case `toWrite` => // everything written, fall through
-                  ssl.deleteSessionCertChain()
+                  // since we are able to encrypt something the handshake must be
+                  // done and we get rid of the certificate chain if requested
+                  if (freeCertificateChain) ssl.deleteSessionCertChain()
                 case -1 => // couldn't write for some reason
                   // FIXME: add check that error is SSL_ERROR_WANT_READ or _WANT_WRITE
                   // and error out otherwise

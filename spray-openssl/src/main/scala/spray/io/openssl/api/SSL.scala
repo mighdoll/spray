@@ -4,6 +4,7 @@ package api
 import org.bridj._
 import LibSSL._
 import java.util.concurrent.atomic.AtomicInteger
+import annotation.tailrec
 
 class SSL private[openssl](pointer: Long) extends TypedPointer(pointer) with WithExDataMethods[SSL] {
   def setBio(readBio: BIO, writeBio: BIO): Unit = SSL_set_bio(getPeer, readBio.getPeer, writeBio.getPeer)
@@ -49,12 +50,36 @@ class SSL private[openssl](pointer: Long) extends TypedPointer(pointer) with Wit
     SSL_set_info_callback(getPeer, cb.toPointer)
   }
 
-  var deleted = false
-  def deleteSessionCertChain() = {
-    if (!deleted) {
+  var wasCertificateChainDeleted = false
+  def deleteSessionCertChain() = synchronized {
+    if (!wasCertificateChainDeleted) {
       val chain = SSL_get_peer_cert_chain(getPeer)
-      sk_pop_free(chain, SSL.X509_free_address.getAddress)
-      deleted = true
+
+      // TODO: consider these:
+      // 1. this will free all the elements and the stack object itself:
+      //    probably not so good idea, because then SSL_free will try to free
+      //    the stack object another time
+      //
+      // sk_pop_free(chain, SSL.X509_free_address.getAddress)
+      //
+      // 2. free the certificate itself (also part of the certificate chain
+      //    this has obviously not a big effect as freeing the complete chain
+      //    and not doing it, may allow the session to be reused (not tested)
+      //
+      // X509_free(SSL_get_peer_certificate(getPeer))
+
+      // for now we just do this:
+      // we delete all entries from the certificate chain but leave the
+      // empty stack alone, so that SSL_free can free it as expected.
+
+      @tailrec def deleteNext(x509: Long): Unit =
+        if (x509 != 0) {
+          X509_free(x509)
+          deleteNext(sk_pop(chain))
+        }
+      deleteNext(sk_pop(chain))
+
+      wasCertificateChainDeleted = true
     }
   }
 }

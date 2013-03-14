@@ -121,5 +121,8 @@ public class LibSSL {
     public static native int X509_STORE_add_cert(X509_STORE store, X509Certificate x509);
 
     public static native long SSL_get_peer_cert_chain(long ssl);
-    public static native long sk_pop_free(long chain, long func);
+    public static native long sk_pop_free(long stack, long func);
+    public static native long SSL_get_peer_certificate(long ssl);
+    public static native void X509_free(long x509);
+    public static native long sk_pop(long stack);
 }
