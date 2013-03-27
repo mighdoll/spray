@@ -111,6 +111,13 @@ object ClientFrontend {
               warning.log(connection.tag, "Received {}, closing connection ...", x)
               commandPL(HttpClient.Close(ProtocolError(x.toString)))
 
+            case complete:SslTlsSupport.HandshakeComplete =>
+              if (!openRequests.isEmpty) {
+                dispatch(openRequests.head.sender, complete)
+              } else {
+                warning.log(connection.tag, "handhake complete {} but no open open request to send it to", complete)
+              }
+              
             case ev => eventPL(ev)
           }
 

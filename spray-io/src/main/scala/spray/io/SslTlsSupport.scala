@@ -47,7 +47,7 @@ object SslTlsSupport {
   /**
    * 
    */
-  case class HandshakeComplete() extends Event
+  case class HandshakeComplete(nanoTime:Long) extends Event
 
   //# Enabling-trait
   /**
@@ -132,7 +132,7 @@ object SslTlsSupport {
               case NOT_HANDSHAKING  =>
                 if (postContentLeft) encrypt(send, tempBuf, fromQueue)
               case FINISHED => 
-                eventPL(HandshakeComplete())
+                eventPL(HandshakeComplete(System.nanoTime()))
                 if (postContentLeft) encrypt(send, tempBuf, fromQueue)
               case NEED_WRAP => encrypt(send, tempBuf, fromQueue)
               case NEED_UNWRAP =>
@@ -170,7 +170,7 @@ object SslTlsSupport {
                 if (buffer.remaining > 0) decrypt(buffer, tempBuf)
                 else processPendingSends(tempBuf)
               case FINISHED =>
-                eventPL(HandshakeComplete())
+                eventPL(HandshakeComplete(System.nanoTime()))
                 if (buffer.remaining > 0) decrypt(buffer, tempBuf)
                 else processPendingSends(tempBuf)
               case NEED_UNWRAP => decrypt(buffer, tempBuf)
