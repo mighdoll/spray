@@ -44,6 +44,11 @@ object SslTlsSupport {
     def encrypt(ctx: PipelineContext) = false
   }
 
+  /**
+   * 
+   */
+  case class HandshakeComplete() extends Event
+
   //# Enabling-trait
   /**
    * Interface that can be implemented by a `tag` object on the connection
@@ -124,7 +129,10 @@ object SslTlsSupport {
           }
           result.getStatus match {
             case OK => result.getHandshakeStatus match {
-              case NOT_HANDSHAKING | FINISHED =>
+              case NOT_HANDSHAKING  =>
+                if (postContentLeft) encrypt(send, tempBuf, fromQueue)
+              case FINISHED => 
+                eventPL(HandshakeComplete())
                 if (postContentLeft) encrypt(send, tempBuf, fromQueue)
               case NEED_WRAP => encrypt(send, tempBuf, fromQueue)
               case NEED_UNWRAP =>
@@ -151,13 +159,18 @@ object SslTlsSupport {
         @tailrec
         def decrypt(buffer: ByteBuffer, tempBuf: ByteBuffer) {
           debug.log(context.connection.tag, "Decrypting buffer with {} bytes", buffer.remaining)
+
           tempBuf.clear()
           val result = engine.unwrap(buffer, tempBuf)
           tempBuf.flip()
           if (tempBuf.remaining > 0) eventPL(IOBridge.Received(context.connection, tempBuf.copy))
           result.getStatus match {
             case OK => result.getHandshakeStatus match {
-              case NOT_HANDSHAKING | FINISHED =>
+              case NOT_HANDSHAKING => 
+                if (buffer.remaining > 0) decrypt(buffer, tempBuf)
+                else processPendingSends(tempBuf)
+              case FINISHED =>
+                eventPL(HandshakeComplete())
                 if (buffer.remaining > 0) decrypt(buffer, tempBuf)
                 else processPendingSends(tempBuf)
               case NEED_UNWRAP => decrypt(buffer, tempBuf)
