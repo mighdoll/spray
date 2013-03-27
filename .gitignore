@@ -5,3 +5,7 @@ src_managed/
 test-output/
 *.iml
 *.pyc
+*.cache
+*.project
+*.settings
+*.classpath
