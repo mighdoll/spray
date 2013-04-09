@@ -55,11 +55,15 @@ object SslTlsSupport {
   }
   //#
 
+  trait ReportHandshakeCompleted {
+    def shouldReport(ctx: PipelineContext): Boolean
+  }
+
   /**
    * An event that is dispatched to the commander of an HttpRequest to report the exact time
    * the SSL handshake was completed.
    */
-  case class HandshakeComplete(nanoTime:Long) extends Event
+  case class HandshakeComplete(nanoTime: Long) extends Event
 
 
   def apply(engineProvider: PipelineContext => SSLEngine, log: LoggingAdapter,
@@ -77,6 +81,11 @@ object SslTlsSupport {
       }
 
       final class SslPipelines(context: PipelineContext, commandPL: CPL, eventPL: EPL) extends Pipelines {
+        val shouldReportHandshakes = context.connection.tag match {
+          case x: ReportHandshakeCompleted => x.shouldReport(context)
+          case _ => false
+        }
+
         val engine = engineProvider(context)
         val pendingSends = mutable.Queue.empty[Send]
         var inboundReceptacle: ByteBuffer = _ // holds incoming data that are too small to be decrypted yet
@@ -134,7 +143,7 @@ object SslTlsSupport {
               case NOT_HANDSHAKING  =>
                 if (postContentLeft) encrypt(send, tempBuf, fromQueue)
               case FINISHED =>
-                eventPL(HandshakeComplete(System.nanoTime()))
+                if (shouldReportHandshakes) eventPL(HandshakeComplete(System.nanoTime()))
                 if (postContentLeft) encrypt(send, tempBuf, fromQueue)
               case NEED_WRAP => encrypt(send, tempBuf, fromQueue)
               case NEED_UNWRAP =>
@@ -172,7 +181,7 @@ object SslTlsSupport {
                 if (buffer.remaining > 0) decrypt(buffer, tempBuf)
                 else processPendingSends(tempBuf)
               case FINISHED =>
-                eventPL(HandshakeComplete(System.nanoTime()))
+                if (shouldReportHandshakes) eventPL(HandshakeComplete(System.nanoTime()))
                 if (buffer.remaining > 0) decrypt(buffer, tempBuf)
                 else processPendingSends(tempBuf)
               case NEED_UNWRAP => decrypt(buffer, tempBuf)
