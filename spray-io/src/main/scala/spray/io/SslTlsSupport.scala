@@ -55,6 +55,13 @@ object SslTlsSupport {
   }
   //#
 
+  /**
+   * An event that is dispatched to the commander of an HttpRequest to report the exact time
+   * the SSL handshake was completed.
+   */
+  case class HandshakeComplete(nanoTime:Long) extends Event
+
+
   def apply(engineProvider: PipelineContext => SSLEngine, log: LoggingAdapter,
             encryptIfUntagged: Boolean = true): PipelineStage = {
     val debug = TaggableLog(log, Logging.DebugLevel)
@@ -124,7 +131,10 @@ object SslTlsSupport {
           }
           result.getStatus match {
             case OK => result.getHandshakeStatus match {
-              case NOT_HANDSHAKING | FINISHED =>
+              case NOT_HANDSHAKING  =>
+                if (postContentLeft) encrypt(send, tempBuf, fromQueue)
+              case FINISHED =>
+                eventPL(HandshakeComplete(System.nanoTime()))
                 if (postContentLeft) encrypt(send, tempBuf, fromQueue)
               case NEED_WRAP => encrypt(send, tempBuf, fromQueue)
               case NEED_UNWRAP =>
@@ -151,13 +161,18 @@ object SslTlsSupport {
         @tailrec
         def decrypt(buffer: ByteBuffer, tempBuf: ByteBuffer) {
           debug.log(context.connection.tag, "Decrypting buffer with {} bytes", buffer.remaining)
+
           tempBuf.clear()
           val result = engine.unwrap(buffer, tempBuf)
           tempBuf.flip()
           if (tempBuf.remaining > 0) eventPL(IOBridge.Received(context.connection, tempBuf.copy))
           result.getStatus match {
             case OK => result.getHandshakeStatus match {
-              case NOT_HANDSHAKING | FINISHED =>
+              case NOT_HANDSHAKING =>
+                if (buffer.remaining > 0) decrypt(buffer, tempBuf)
+                else processPendingSends(tempBuf)
+              case FINISHED =>
+                eventPL(HandshakeComplete(System.nanoTime()))
                 if (buffer.remaining > 0) decrypt(buffer, tempBuf)
                 else processPendingSends(tempBuf)
               case NEED_UNWRAP => decrypt(buffer, tempBuf)
