@@ -105,7 +105,7 @@ class SslTlsSupportSpec extends Specification {
   }
 
   class SslClientActor extends IOClient(ioBridge) with ConnectionActors {
-    protected def pipeline = frontEnd >> SslTlsSupport(ClientSSLEngineProvider.default, log)
+    protected def pipeline = frontEnd >> SslTlsSupport(ClientSSLEngineProvider.default, log) >> IOClient.ReportConnected
     def frontEnd = new PipelineStage {
       def build(context: PipelineContext, commandPL: CPL, eventPL: EPL) = new Pipelines {
         var receiver: ActorRef = _

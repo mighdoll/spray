@@ -47,6 +47,9 @@ abstract class IOClient(val rootIoBridge: ActorRef) extends IOPeer {
     case Registered(commander, handle) =>
       handle.handler ! ConnectedWithCommander(handle, commander)
 
+    case ConnectedWithCommander(handle, commander) =>
+      commander ! Connected(handle)
+
     case Reply(Status.Failure(CommandException(Connect(remoteAddress, _, _), msg, cause)), commander: ActorRef) =>
       commander ! Status.Failure(IOClientException("Couldn't connect to " + remoteAddress, cause))
   }
