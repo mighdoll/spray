@@ -54,7 +54,8 @@ public class LibSSL {
     public static native long SSL_CTX_get_ex_data(@Ptr long ctx, int idx);
 
     public static native long SSL_new(@Ptr long ctx);
-
+    public static native int SSL_shutdown(@Ptr long ssl);
+    public static native int SSL_get_shutdown(@Ptr long ssl);
     public static native void SSL_free(@Ptr long ssl);
 
     public static native SSLCtx SSL_get_SSL_CTX(SSL ssl);

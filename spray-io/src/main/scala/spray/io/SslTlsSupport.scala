@@ -24,6 +24,7 @@ import scala.annotation.tailrec
 import akka.event.{Logging, LoggingAdapter}
 import spray.util._
 import SSLEngineResult.Status._
+import spray.util.ConnectionCloseReasons.ConfirmedClose
 
 
 object SslTlsSupport {
@@ -99,7 +100,7 @@ object SslTlsSupport {
             debug.log(context.connection.tag ,"Closing SSLEngine due to reception of {}", x)
             engine.closeOutbound()
             withTempBuf(closeEngine)
-            commandPL(x)
+            commandPL(IOPeer.Close(ConfirmedClose))
 
           case cmd => commandPL(cmd)
         }

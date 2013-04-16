@@ -35,6 +35,8 @@ class SSL private[openssl](pointer: Long) extends TypedPointer(pointer) with Wit
   def setExData(idx: Int, arg: Long): Unit = SSL_set_ex_data(getPeer, idx, arg).returnChecked
   def getExData(idx: Int): Long = SSL_get_ex_data(getPeer, idx)
 
+  def shutdown(): Int = SSL_shutdown(getPeer)
+
   def free(): Unit = {
 
     SSL_free(getPeer)

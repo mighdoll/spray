@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import spray.io._
 import api._
 import spray.io.SslTlsSupport.Enabling
+import spray.util.ConnectionCloseReasons.ConfirmedClose
 
 object OpenSslSupport {
   def shouldEncypt(ctx: PipelineContext): Boolean =
@@ -83,7 +84,12 @@ object OpenSslSupport {
             withTempBuf(encrypt(x.buffers))
             debug("Finished sending %d bytes" format x.buffers.map(_.remaining()).sum)
 
-          //case x: IOPeer.Close =>
+          case x: IOPeer.Close =>
+            withTempBuf { direct =>
+              ssl.shutdown()
+              tryRead(direct)
+            }
+            commandPL(IOPeer.Close(ConfirmedClose))
 
           case cmd => commandPL(cmd)
         }
