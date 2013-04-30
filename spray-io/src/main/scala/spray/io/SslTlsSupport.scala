@@ -68,8 +68,9 @@ object SslTlsSupport {
    * the SSL handshake was completed.
    */
   case class HandshakeComplete(nanoTime: Long) extends SslTimingEvent
-  case class FirstAppDataToSendReceived(nanoTime: Long) extends SslTimingEvent
-  case class FirstAppDataFromNetworkReceived(nanoTime: Long) extends SslTimingEvent
+  case class FirstAppDataToEncrypt(nanoTime: Long) extends SslTimingEvent
+  case class FirstAppDataEncrypted(nanoTime: Long) extends SslTimingEvent
+  case class FirstAppDataDecrypted(nanoTime: Long) extends SslTimingEvent
 
   def apply(engineProvider: PipelineContext => SSLEngine, log: LoggingAdapter,
             encryptIfUntagged: Boolean = true): PipelineStage = {
@@ -91,9 +92,9 @@ object SslTlsSupport {
             case x: ReportTimingEvents => x.shouldReportTimingEvents(context)
             case _ => false
           }
-        var shouldReportFirstAppDataToSend = shouldReportTimingEvents
-        var shouldReportFirstAppDataReceived = shouldReportTimingEvents
-
+        var shouldReportFirstAppDataToEncrypt = shouldReportTimingEvents
+        var shouldReportFirstAppDataEncrypted = shouldReportTimingEvents
+        var shouldReportFirstAppDataDecrypted = shouldReportTimingEvents
 
         val engine = engineProvider(context)
         val pendingSends = mutable.Queue.empty[Send]
@@ -101,10 +102,11 @@ object SslTlsSupport {
 
         val commandPipeline: CPL = {
           case x: IOPeer.Send =>
-            if (shouldReportFirstAppDataToSend) {
-              eventPL(FirstAppDataToSendReceived(System.nanoTime()))
-              shouldReportFirstAppDataToSend = false
+            if (shouldReportFirstAppDataToEncrypt) {
+              eventPL(FirstAppDataToEncrypt(System.nanoTime()))
+              shouldReportFirstAppDataToEncrypt = false
             }
+
             if (pendingSends.isEmpty) withTempBuf(encrypt(Send(x), _))
             else pendingSends += Send(x)
 
@@ -147,9 +149,15 @@ object SslTlsSupport {
           val result = engine.wrap(buffers, tempBuf)
           val postContentLeft = contentLeft()
           tempBuf.flip()
-          if (tempBuf.remaining > 0) commandPL {
-            val sendAck = if (ackDefinedAndPreContentLeft && !postContentLeft) ack else None
-            IOPeer.Send(tempBuf.copy :: Nil, sendAck)
+          if (tempBuf.remaining > 0) {
+            commandPL {
+              val sendAck = if (ackDefinedAndPreContentLeft && !postContentLeft) ack else None
+              IOPeer.Send(tempBuf.copy :: Nil, sendAck)
+            }
+            if (shouldReportFirstAppDataEncrypted && result.bytesConsumed() > 0) {
+              eventPL(FirstAppDataEncrypted(System.nanoTime()))
+              shouldReportFirstAppDataEncrypted = false
+            }
           }
           result.getStatus match {
             case OK => result.getHandshakeStatus match {
@@ -190,9 +198,9 @@ object SslTlsSupport {
           if (tempBuf.remaining > 0) eventPL(IOBridge.Received(context.connection, tempBuf.copy))
           if (tempBuf.remaining > 0) {
             eventPL(IOBridge.Received(context.connection, tempBuf.copy))
-            if (shouldReportFirstAppDataReceived) {
-              eventPL(FirstAppDataFromNetworkReceived(System.nanoTime()))
-              shouldReportFirstAppDataReceived = false
+            if (shouldReportFirstAppDataDecrypted) {
+              eventPL(FirstAppDataDecrypted(System.nanoTime()))
+              shouldReportFirstAppDataDecrypted = false
             }
           }
           result.getStatus match {
