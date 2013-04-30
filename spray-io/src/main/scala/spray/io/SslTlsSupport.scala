@@ -133,6 +133,14 @@ object SslTlsSupport {
             }
             eventPL(x)
 
+          case c: IOClient.ConnectedWithCommander =>
+            engine.beginHandshake()
+            // trigger sending logic
+            withTempBuf(encrypt(Send.Empty, _))
+
+            // we don't change the semantics of the Connected message to mean "Connected on the SSL level"
+            eventPL(c)
+
           case ev => eventPL(ev)
         }
 
