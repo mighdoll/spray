@@ -73,6 +73,8 @@ object HttpDialog {
       case AwaitResponseAction :: remainingActions =>
         onResponse = Some(() => self ! remainingActions)
 
+      case Nil =>
+
       case x: HttpResponse =>
         responses += x
         responsesPending -= 1
