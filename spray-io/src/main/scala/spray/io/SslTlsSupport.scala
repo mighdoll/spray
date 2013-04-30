@@ -203,11 +203,11 @@ object SslTlsSupport {
           val result = engine.unwrap(buffer, tempBuf)
           tempBuf.flip()
           if (tempBuf.remaining > 0) {
-            eventPL(IOBridge.Received(context.connection, tempBuf.copy))
             if (shouldReportFirstAppDataDecrypted) {
               reportTimingEvent(FirstAppDataDecrypted)
               shouldReportFirstAppDataDecrypted = false
             }
+            eventPL(IOBridge.Received(context.connection, tempBuf.copy))
           }
           result.getStatus match {
             case OK => result.getHandshakeStatus match {
