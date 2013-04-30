@@ -60,17 +60,16 @@ object SslTlsSupport {
     def shouldReportTimingEvents(ctx: PipelineContext): Boolean
   }
 
-  sealed trait SslTimingEvent extends Event {
-    def nanoTime: Long
-  }
+  case class SslTimingEvent(tpe: SslTimingEventType, nanoTime: Long = System.nanoTime()) extends Event
+  sealed trait SslTimingEventType
   /**
    * An event that is dispatched to the commander of an HttpRequest to report the exact time
    * the SSL handshake was completed.
    */
-  case class HandshakeComplete(nanoTime: Long) extends SslTimingEvent
-  case class FirstAppDataToEncrypt(nanoTime: Long) extends SslTimingEvent
-  case class FirstAppDataEncrypted(nanoTime: Long) extends SslTimingEvent
-  case class FirstAppDataDecrypted(nanoTime: Long) extends SslTimingEvent
+  case object HandshakeComplete extends SslTimingEventType
+  case object FirstAppDataToEncrypt extends SslTimingEventType
+  case object FirstAppDataEncrypted extends SslTimingEventType
+  case object FirstAppDataDecrypted extends SslTimingEventType
 
   def apply(engineProvider: PipelineContext => SSLEngine, log: LoggingAdapter,
             encryptIfUntagged: Boolean = true): PipelineStage = {
@@ -103,7 +102,7 @@ object SslTlsSupport {
         val commandPipeline: CPL = {
           case x: IOPeer.Send =>
             if (shouldReportFirstAppDataToEncrypt) {
-              eventPL(FirstAppDataToEncrypt(System.nanoTime()))
+              reportTimingEvent(FirstAppDataToEncrypt)
               shouldReportFirstAppDataToEncrypt = false
             }
 
@@ -163,7 +162,7 @@ object SslTlsSupport {
               IOPeer.Send(tempBuf.copy :: Nil, sendAck)
             }
             if (shouldReportFirstAppDataEncrypted && result.bytesConsumed() > 0) {
-              eventPL(FirstAppDataEncrypted(System.nanoTime()))
+              reportTimingEvent(FirstAppDataEncrypted)
               shouldReportFirstAppDataEncrypted = false
             }
           }
@@ -172,7 +171,7 @@ object SslTlsSupport {
               case NOT_HANDSHAKING  =>
                 if (postContentLeft) encrypt(send, tempBuf, fromQueue)
               case FINISHED =>
-                if (shouldReportTimingEvents) eventPL(HandshakeComplete(System.nanoTime()))
+                if (shouldReportTimingEvents) reportTimingEvent(HandshakeComplete)
                 if (postContentLeft) encrypt(send, tempBuf, fromQueue)
               case NEED_WRAP => encrypt(send, tempBuf, fromQueue)
               case NEED_UNWRAP =>
@@ -207,7 +206,7 @@ object SslTlsSupport {
           if (tempBuf.remaining > 0) {
             eventPL(IOBridge.Received(context.connection, tempBuf.copy))
             if (shouldReportFirstAppDataDecrypted) {
-              eventPL(FirstAppDataDecrypted(System.nanoTime()))
+              reportTimingEvent(FirstAppDataDecrypted)
               shouldReportFirstAppDataDecrypted = false
             }
           }
@@ -217,7 +216,7 @@ object SslTlsSupport {
                 if (buffer.remaining > 0) decrypt(buffer, tempBuf)
                 else processPendingSends(tempBuf)
               case FINISHED =>
-                if (shouldReportTimingEvents) eventPL(HandshakeComplete(System.nanoTime()))
+                if (shouldReportTimingEvents) reportTimingEvent(HandshakeComplete)
                 if (buffer.remaining > 0) decrypt(buffer, tempBuf)
                 else processPendingSends(tempBuf)
               case NEED_UNWRAP => decrypt(buffer, tempBuf)
@@ -279,6 +278,10 @@ object SslTlsSupport {
             encrypt(Send.Empty, tempBuf)
             closeEngine(tempBuf)
           }
+        }
+
+        def reportTimingEvent(tpe: SslTimingEventType) {
+          eventPL(SslTimingEvent(tpe))
         }
       }
     }

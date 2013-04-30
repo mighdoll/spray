@@ -111,9 +111,9 @@ object ClientFrontend {
               warning.log(connection.tag, "Received {}, closing connection ...", x)
               commandPL(HttpClient.Close(ProtocolError(x.toString)))
 
-            case complete:SslTlsSupport.SslTimingEvent =>
+            case timingEvent: SslTlsSupport.SslTimingEvent =>
               val recipient = openRequests.headOption.map(_.sender).getOrElse(context.connection.commander)
-              dispatch(recipient, complete)
+              dispatch(recipient, timingEvent)
 
             case ev => eventPL(ev)
           }
