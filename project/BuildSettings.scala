@@ -4,7 +4,7 @@ import ls.Plugin._
 
 
 object BuildSettings {
-  val VERSION = "1.1-M7.1-openssl-M4.1"
+  val VERSION = "1.1-M7.1-openssl-M5-SNAPSHOT"
 
   lazy val basicSettings = seq(
     version               := NightlyBuildSupport.buildVersion(VERSION),
