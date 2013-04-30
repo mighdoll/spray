@@ -112,11 +112,8 @@ object ClientFrontend {
               commandPL(HttpClient.Close(ProtocolError(x.toString)))
 
             case complete:SslTlsSupport.SslTimingEvent =>
-              if (!openRequests.isEmpty) {
-                dispatch(openRequests.head.sender, complete)
-              } else {
-                warning.log(connection.tag, "handshake complete {} but no open open request to send it to", complete)
-              }
+              val recipient = openRequests.headOption.map(_.sender).getOrElse(context.connection.commander)
+              dispatch(recipient, complete)
 
             case ev => eventPL(ev)
           }
