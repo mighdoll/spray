@@ -57,15 +57,21 @@ object SslTlsSupport {
   //#
 
   trait ReportHandshakeCompleted {
-    def shouldReport(ctx: PipelineContext): Boolean
+    def shouldReportHandshakeCompleted(ctx: PipelineContext): Boolean
+    def shouldReportFirstAppDataToSend(ctx: PipelineContext): Boolean
+    def shouldReportFirstAppDataReceived(ctx: PipelineContext): Boolean
   }
 
+  sealed trait SslTimingEvent extends Event {
+    def nanoTime: Long
+  }
   /**
    * An event that is dispatched to the commander of an HttpRequest to report the exact time
    * the SSL handshake was completed.
    */
-  case class HandshakeComplete(nanoTime: Long) extends Event
-
+  case class HandshakeComplete(nanoTime: Long) extends SslTimingEvent
+  case class FirstAppDataToSendReceived(nanoTime: Long) extends SslTimingEvent
+  case class FirstAppDataFromNetworkReceived(nanoTime: Long) extends SslTimingEvent
 
   def apply(engineProvider: PipelineContext => SSLEngine, log: LoggingAdapter,
             encryptIfUntagged: Boolean = true): PipelineStage = {
@@ -82,10 +88,14 @@ object SslTlsSupport {
       }
 
       final class SslPipelines(context: PipelineContext, commandPL: CPL, eventPL: EPL) extends Pipelines {
-        val shouldReportHandshakes = context.connection.tag match {
-          case x: ReportHandshakeCompleted => x.shouldReport(context)
-          case _ => false
-        }
+        var (shouldReportHandshakes, shouldReportFirstAppDataToSend, shouldReportFirstAppDataReceived) =
+          context.connection.tag match {
+            case x: ReportHandshakeCompleted =>
+              (x.shouldReportHandshakeCompleted(context),
+               x.shouldReportFirstAppDataToSend(context),
+               x.shouldReportFirstAppDataReceived(context))
+            case _ => (false, false, false)
+          }
 
         val engine = engineProvider(context)
         val pendingSends = mutable.Queue.empty[Send]
@@ -93,6 +103,10 @@ object SslTlsSupport {
 
         val commandPipeline: CPL = {
           case x: IOPeer.Send =>
+            if (shouldReportFirstAppDataToSend) {
+              eventPL(FirstAppDataToSendReceived(System.nanoTime()))
+              shouldReportFirstAppDataToSend = false
+            }
             if (pendingSends.isEmpty) withTempBuf(encrypt(Send(x), _))
             else pendingSends += Send(x)
 
@@ -176,6 +190,13 @@ object SslTlsSupport {
           val result = engine.unwrap(buffer, tempBuf)
           tempBuf.flip()
           if (tempBuf.remaining > 0) eventPL(IOBridge.Received(context.connection, tempBuf.copy))
+          if (tempBuf.remaining > 0) {
+            eventPL(IOBridge.Received(context.connection, tempBuf.copy))
+            if (shouldReportFirstAppDataReceived) {
+              eventPL(FirstAppDataFromNetworkReceived(System.nanoTime()))
+              shouldReportFirstAppDataReceived = false
+            }
+          }
           result.getStatus match {
             case OK => result.getHandshakeStatus match {
               case NOT_HANDSHAKING =>
