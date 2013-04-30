@@ -56,10 +56,8 @@ object SslTlsSupport {
   }
   //#
 
-  trait ReportHandshakeCompleted {
-    def shouldReportHandshakeCompleted(ctx: PipelineContext): Boolean
-    def shouldReportFirstAppDataToSend(ctx: PipelineContext): Boolean
-    def shouldReportFirstAppDataReceived(ctx: PipelineContext): Boolean
+  trait ReportTimingEvents {
+    def shouldReportTimingEvents(ctx: PipelineContext): Boolean
   }
 
   sealed trait SslTimingEvent extends Event {
@@ -88,14 +86,14 @@ object SslTlsSupport {
       }
 
       final class SslPipelines(context: PipelineContext, commandPL: CPL, eventPL: EPL) extends Pipelines {
-        var (shouldReportHandshakes, shouldReportFirstAppDataToSend, shouldReportFirstAppDataReceived) =
+        val shouldReportTimingEvents =
           context.connection.tag match {
-            case x: ReportHandshakeCompleted =>
-              (x.shouldReportHandshakeCompleted(context),
-               x.shouldReportFirstAppDataToSend(context),
-               x.shouldReportFirstAppDataReceived(context))
-            case _ => (false, false, false)
+            case x: ReportTimingEvents => x.shouldReportTimingEvents(context)
+            case _ => false
           }
+        var shouldReportFirstAppDataToSend = shouldReportTimingEvents
+        var shouldReportFirstAppDataReceived = shouldReportTimingEvents
+
 
         val engine = engineProvider(context)
         val pendingSends = mutable.Queue.empty[Send]
@@ -158,7 +156,7 @@ object SslTlsSupport {
               case NOT_HANDSHAKING  =>
                 if (postContentLeft) encrypt(send, tempBuf, fromQueue)
               case FINISHED =>
-                if (shouldReportHandshakes) eventPL(HandshakeComplete(System.nanoTime()))
+                if (shouldReportTimingEvents) eventPL(HandshakeComplete(System.nanoTime()))
                 if (postContentLeft) encrypt(send, tempBuf, fromQueue)
               case NEED_WRAP => encrypt(send, tempBuf, fromQueue)
               case NEED_UNWRAP =>
@@ -203,7 +201,7 @@ object SslTlsSupport {
                 if (buffer.remaining > 0) decrypt(buffer, tempBuf)
                 else processPendingSends(tempBuf)
               case FINISHED =>
-                if (shouldReportHandshakes) eventPL(HandshakeComplete(System.nanoTime()))
+                if (shouldReportTimingEvents) eventPL(HandshakeComplete(System.nanoTime()))
                 if (buffer.remaining > 0) decrypt(buffer, tempBuf)
                 else processPendingSends(tempBuf)
               case NEED_UNWRAP => decrypt(buffer, tempBuf)
