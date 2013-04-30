@@ -202,7 +202,6 @@ object SslTlsSupport {
           tempBuf.clear()
           val result = engine.unwrap(buffer, tempBuf)
           tempBuf.flip()
-          if (tempBuf.remaining > 0) eventPL(IOBridge.Received(context.connection, tempBuf.copy))
           if (tempBuf.remaining > 0) {
             eventPL(IOBridge.Received(context.connection, tempBuf.copy))
             if (shouldReportFirstAppDataDecrypted) {
