@@ -67,6 +67,8 @@ object SslTlsSupport {
    * the SSL handshake was completed.
    */
   case object HandshakeComplete extends SslTimingEventType
+  case object FirstTcpDataSent extends SslTimingEventType
+  case object FirstTcpDataReceived extends SslTimingEventType
   case object FirstAppDataToEncrypt extends SslTimingEventType
   case object FirstAppDataEncrypted extends SslTimingEventType
   case object FirstAppDataDecrypted extends SslTimingEventType
@@ -91,6 +93,8 @@ object SslTlsSupport {
             case x: ReportTimingEvents => x.shouldReportTimingEvents(context)
             case _ => false
           }
+        var shouldReportFirstDataReceived = shouldReportTimingEvents
+        var shouldReportFirstDataSent = shouldReportTimingEvents
         var shouldReportFirstAppDataToEncrypt = shouldReportTimingEvents
         var shouldReportFirstAppDataEncrypted = shouldReportTimingEvents
         var shouldReportFirstAppDataDecrypted = shouldReportTimingEvents
@@ -120,6 +124,11 @@ object SslTlsSupport {
 
         val eventPipeline: EPL = {
           case IOPeer.Received(_, buffer) =>
+            if (shouldReportFirstDataReceived) {
+              reportTimingEvent(FirstTcpDataReceived)
+              shouldReportFirstDataReceived = false
+            }
+
             val buf = if (inboundReceptacle != null) {
               val r = inboundReceptacle; inboundReceptacle = null; r.concat(buffer)
             } else buffer
@@ -160,6 +169,10 @@ object SslTlsSupport {
             commandPL {
               val sendAck = if (ackDefinedAndPreContentLeft && !postContentLeft) ack else None
               IOPeer.Send(tempBuf.copy :: Nil, sendAck)
+            }
+            if (shouldReportFirstDataSent) {
+              reportTimingEvent(FirstTcpDataSent)
+              shouldReportFirstDataSent = false
             }
             if (shouldReportFirstAppDataEncrypted && result.bytesConsumed() > 0) {
               reportTimingEvent(FirstAppDataEncrypted)
