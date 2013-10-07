@@ -73,6 +73,7 @@ object StatusCodes extends ObjectRegistry[Int, StatusCode] {
   val UseProxy          = new Redirection(305, "Use Proxy", "This single request is to be repeated via the proxy given by the Location field.", "This single request is to be repeated via the proxy under <a href=\"%s\">this URI</a>.")
   val TemporaryRedirect = new Redirection(307, "Temporary Redirect", "The request should be repeated with another URI, but future requests can still use the original URI.", "The request should be repeated with <a href=\"%s\">this URI</a>, but future requests can still use the original URI.")
   val PermanentRedirect = new Redirection(308, "Permanent Redirect", "The request, and all future requests should be repeated using another URI.", "The request, and all future requests should be repeated using <a href=\"%s\">this URI</a>.")
+  val ReInit            = new Redirection(330, "ReInit", "ReInitialize", "Knock at the Front Door")
 
   val BadRequest                   = new ClientError(400, "Bad Request", "The request contains bad syntax or cannot be fulfilled.")
   val Unauthorized                 = new ClientError(401, "Unauthorized", "Authentication is possible but has failed or not yet been provided.")
